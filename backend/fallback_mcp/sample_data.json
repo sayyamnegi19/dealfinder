@@ -1,0 +1,50 @@
+[
+  {
+    "title": "Sony WH-1000XM5 Wireless Noise Cancelling Headphones",
+    "category": "headphones",
+    "tags": ["sony", "wh-1000xm5", "wh1000xm5", "headphones", "headphone", "noise", "cancelling", "cancellation", "wireless", "bluetooth", "over-ear"],
+    "base_price": 26990,
+    "rating": 4.6,
+    "reviews": 8421
+  },
+  {
+    "title": "Apple iPhone 15 (128 GB, Blue)",
+    "category": "smartphone",
+    "tags": ["apple", "iphone", "15", "smartphone", "mobile", "phone", "128gb", "128", "gb", "ios"],
+    "base_price": 64900,
+    "rating": 4.5,
+    "reviews": 23187
+  },
+  {
+    "title": "Lenovo LOQ 15 Gaming Laptop (Ryzen 7, RTX 4050, 16GB RAM, 512GB SSD)",
+    "category": "laptop",
+    "tags": ["lenovo", "loq", "gaming", "laptop", "ryzen", "rtx", "4050", "16gb", "ram", "512gb", "ssd", "notebook"],
+    "base_price": 74990,
+    "rating": 4.3,
+    "reviews": 1642
+  },
+  {
+    "title": "Samsung 138 cm (55 inch) 4K Ultra HD Smart LED TV",
+    "category": "television",
+    "tags": ["samsung", "55", "inch", "4k", "ultra", "hd", "smart", "led", "tv", "television"],
+    "base_price": 44990,
+    "rating": 4.4,
+    "reviews": 5230
+  },
+  {
+    "title": "boAt Rockerz 450 Bluetooth On-Ear Headphones",
+    "category": "headphones",
+    "tags": ["boat", "rockerz", "450", "bluetooth", "headphones", "headphone", "on-ear", "budget", "wireless"],
+    "base_price": 1499,
+    "rating": 4.1,
+    "reviews": 89340
+  },
+  {
+    "title": "Apple Watch SE (2nd Gen, 40mm GPS)",
+    "category": "smartwatch",
+    "tags": ["apple", "watch", "se", "smartwatch", "40mm", "gps", "wearable"],
+    "base_price": 24900,
+    "rating": 4.5,
+    "reviews": 12045
+  }
+]
