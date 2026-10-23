@@ -31,10 +31,10 @@ export function formatRelativeTime(iso: string): string {
 }
 
 export const SITE_META: Record<string, { label: string; className: string }> = {
-  amazon: { label: 'Amazon.in', className: 'bg-amber-100 text-amber-900 ring-amber-200' },
-  flipkart: { label: 'Flipkart', className: 'bg-blue-100 text-blue-900 ring-blue-200' },
+  amazon: { label: 'Amazon.in', className: 'badge-site-amazon' },
+  flipkart: { label: 'Flipkart', className: 'badge-site-flipkart' },
 }
 
 export function siteMeta(site: string): { label: string; className: string } {
-  return SITE_META[site] ?? { label: site, className: 'bg-slate-100 text-slate-700 ring-slate-200' }
+  return SITE_META[site] ?? { label: site, className: 'badge-neutral' }
 }

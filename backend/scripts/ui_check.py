@@ -48,7 +48,7 @@ def main() -> int:
         page.screenshot(path=str(out_dir / "03-results.png"), full_page=True)
         print("STEP 3: results rendered")
 
-        best_price = page.locator("div.text-3xl").first.inner_text().strip()
+        best_price = page.locator(".price-display").first.inner_text().strip()
         summary = page.locator("section:has(h2:has-text('Summary')) p").first.inner_text().strip()
         sites = {
             "amazon": page.locator("text=Amazon.in").count(),

@@ -1,19 +1,29 @@
-import { priceNumber, formatPrice, siteMeta } from '../api/format'
+import { formatPrice, formatRelativeTime, priceNumber, siteMeta } from '../api/format'
 import type { Offer, ProductGroup, SearchDetail } from '../api/types'
 
 function SiteBadge({ site }: { site: string }) {
   const meta = siteMeta(site)
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${meta.className}`}>
-      {meta.label}
-    </span>
-  )
+  return <span className={`badge ${meta.className}`}>{meta.label}</span>
 }
 
 function SampleBadge() {
+  return <span className="badge badge-warning">Sample data</span>
+}
+
+function StockBadge({ inStock, showInStock = false }: { inStock: boolean | null; showInStock?: boolean }) {
+  if (inStock == null || (inStock && !showInStock)) return null
+  return <span className={`badge ${inStock ? 'badge-success' : 'badge-danger'}`}>{inStock ? 'In stock' : 'Out of stock'}</span>
+}
+
+function Rating({ rating, reviews }: { rating: number | null; reviews: number | null }) {
+  if (rating == null) return null
   return (
-    <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-amber-200">
-      sample
+    <span
+      className="text-meta"
+      aria-label={`Rated ${rating.toFixed(1)} out of 5${reviews != null && reviews > 0 ? ` from ${reviews.toLocaleString('en-IN')} ratings` : ''}`}
+    >
+      <span aria-hidden="true">★</span> {rating.toFixed(1)}
+      {reviews != null && reviews > 0 ? ` · ${reviews.toLocaleString('en-IN')} ratings` : ''}
     </span>
   )
 }
@@ -24,42 +34,29 @@ function OfferRow({ offer, isLowest }: { offer: Offer; isLowest: boolean }) {
   const showMrp = mrp && price && offer.mrp !== offer.price
 
   return (
-    <div className="flex items-start justify-between gap-3 rounded-xl border border-slate-100 bg-white px-3 py-2.5">
+    <div className="offer-row">
       <div className="min-w-0">
-        <div className="mb-1 flex flex-wrap items-center gap-2">
+        <div className="offer-meta">
           <SiteBadge site={offer.site} />
           {offer.is_sample && <SampleBadge />}
-          {isLowest && (
-            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200">
-              lowest price
-            </span>
-          )}
-          {offer.rating != null && (
-            <span className="text-[11px] text-slate-500">
-              ★ {offer.rating.toFixed(1)}
-              {offer.reviews != null && offer.reviews > 0 ? ` · ${offer.reviews.toLocaleString('en-IN')} ratings` : ''}
-            </span>
-          )}
+          {isLowest && <span className="badge badge-brand">Lowest price</span>}
+          <Rating rating={offer.rating} reviews={offer.reviews} />
+          <StockBadge inStock={offer.in_stock} />
         </div>
-        <a
-          href={offer.url}
-          target="_blank"
-          rel="noreferrer"
-          className="line-clamp-2 text-sm text-slate-800 hover:text-blue-700 hover:underline"
-          title={offer.title}
-        >
+        <a href={offer.url} target="_blank" rel="noreferrer" className="offer-title" title={offer.title}>
           {offer.title}
+          <span className="sr-only"> (opens in a new tab)</span>
         </a>
+        {offer.seller && <p className="offer-seller">Sold by {offer.seller}</p>}
       </div>
-      <div className="shrink-0 text-right">
-        <div className="text-sm font-semibold text-slate-900">{price ?? '—'}</div>
+
+      <div className="offer-price">
+        <span className="price">{price ?? '—'}</span>
         {showMrp && (
-          <div className="text-xs text-slate-400">
-            <span className="line-through">{mrp}</span>
-            {offer.discount_pct != null && (
-              <span className="ml-1 font-medium text-emerald-600">{Math.round(offer.discount_pct)}% off</span>
-            )}
-          </div>
+          <span className="offer-price__meta">
+            <span className="price-mrp">{mrp}</span>
+            {offer.discount_pct != null && <span className="discount">{Math.round(offer.discount_pct)}% off</span>}
+          </span>
         )}
       </div>
     </div>
@@ -70,13 +67,20 @@ function GroupCard({ group }: { group: ProductGroup }) {
   const sorted = [...group.offers].sort(
     (a, b) => (priceNumber(a.price) ?? Number.POSITIVE_INFINITY) - (priceNumber(b.price) ?? Number.POSITIVE_INFINITY),
   )
-  const lowestId = sorted[0]?.id
+  const lowestId = sorted.find((offer) => priceNumber(offer.price) != null)?.id
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
-      <h3 className="text-sm font-semibold text-slate-900">{group.canonical_name}</h3>
-      {group.note && <p className="mt-0.5 text-xs text-slate-500">{group.note}</p>}
-      <div className="mt-3 space-y-2">
+    <section className="card">
+      <div className="group-card__header">
+        <div>
+          <h3 className="card-title">{group.canonical_name}</h3>
+          {group.note && <p className="card-description">{group.note}</p>}
+        </div>
+        <span className="badge badge-neutral">
+          {group.offers.length} {group.offers.length === 1 ? 'offer' : 'offers'}
+        </span>
+      </div>
+      <div>
         {sorted.map((offer) => (
           <OfferRow key={offer.id} offer={offer} isLowest={offer.id === lowestId} />
         ))}
@@ -87,44 +91,70 @@ function GroupCard({ group }: { group: ProductGroup }) {
 
 function BestDealCard({ search, bestOffer, group }: { search: SearchDetail; bestOffer: Offer; group: ProductGroup }) {
   const price = formatPrice(bestOffer.price)
-  const prices = group.offers.map((o) => priceNumber(o.price)).filter((n): n is number => n != null)
+  const prices = group.offers.map((offer) => priceNumber(offer.price)).filter((value): value is number => value != null)
   const maxPrice = prices.length ? Math.max(...prices) : null
   const bestPrice = priceNumber(bestOffer.price)
   const savings = maxPrice != null && bestPrice != null && maxPrice > bestPrice ? maxPrice - bestPrice : null
+  const savingsLabel = savings != null ? formatPrice(savings) : null
 
   return (
-    <section className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm">
-      <div className="mb-2 flex items-center gap-2">
-        <span className="text-lg">🏆</span>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-emerald-800">Best deal</h2>
+    <section className="card card-brand">
+      <div className="best-deal__header">
+        <span className="best-deal__icon" aria-hidden="true">
+          <svg
+            className="icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="8" r="5" />
+            <path d="M8.2 12.4 7 22l5-3 5 3-1.2-9.6" />
+          </svg>
+        </span>
+        <div>
+          <h2 className="best-deal__title">Best deal</h2>
+          <p className="text-meta">Recommended across the compared marketplaces</p>
+        </div>
       </div>
-      <div className="flex flex-wrap items-start justify-between gap-4">
+
+      <div className="best-deal__body">
         <div className="min-w-0">
-          <div className="mb-1 flex items-center gap-2">
+          <div className="offer-meta">
             <SiteBadge site={bestOffer.site} />
             {bestOffer.is_sample && <SampleBadge />}
-            {bestOffer.rating != null && <span className="text-xs text-slate-500">★ {bestOffer.rating.toFixed(1)}</span>}
+            <Rating rating={bestOffer.rating} reviews={bestOffer.reviews} />
+            <StockBadge inStock={bestOffer.in_stock} showInStock />
           </div>
-          <a
-            href={bestOffer.url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-base font-medium text-slate-900 hover:text-emerald-700 hover:underline"
-          >
+          <a href={bestOffer.url} target="_blank" rel="noreferrer" className="offer-title">
             {bestOffer.title}
+            <span className="sr-only"> (opens in a new tab)</span>
           </a>
-          {search.best_deal_reason && <p className="mt-2 max-w-xl text-sm text-slate-600">{search.best_deal_reason}</p>}
+          {bestOffer.seller && <p className="offer-seller">Sold by {bestOffer.seller}</p>}
+          {search.best_deal_reason && <p className="summary-copy mt-2">{search.best_deal_reason}</p>}
         </div>
-        <div className="text-right">
-          <div className="text-3xl font-bold text-emerald-700">{price ?? '—'}</div>
-          {savings != null && <div className="text-xs font-medium text-emerald-600">saves {formatPrice(savings)} vs highest offer</div>}
-          <a
-            href={bestOffer.url}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 inline-flex items-center rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-          >
-            Check deal →
+
+        <div className="best-deal__price">
+          <div className="price-display">{price ?? '—'}</div>
+          {savingsLabel && <div className="savings">Saves {savingsLabel} vs the highest offer</div>}
+          <a href={bestOffer.url} target="_blank" rel="noreferrer" className="btn btn-primary mt-3">
+            Check deal
+            <svg
+              className="icon-sm"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M7 17 17 7" />
+              <path d="M7 7h10v10" />
+            </svg>
+            <span className="sr-only"> (opens in a new tab)</span>
           </a>
         </div>
       </div>
@@ -137,7 +167,7 @@ export function DealResults({ search }: { search: SearchDetail }) {
   let bestGroup: ProductGroup | null = null
   for (const group of search.groups) {
     if (group.best_offer == null) continue
-    const offer = group.offers.find((o) => o.id === group.best_offer)
+    const offer = group.offers.find((item) => item.id === group.best_offer)
     if (offer) {
       bestOffer = offer
       bestGroup = group
@@ -145,37 +175,72 @@ export function DealResults({ search }: { search: SearchDetail }) {
     }
   }
 
+  const checkedAt = formatRelativeTime(search.completed_at ?? search.created_at)
+  const groupLabel = `${search.groups.length} product ${search.groups.length === 1 ? 'group' : 'groups'}`
+
   return (
-    <div className="space-y-4">
+    <div className="section-stack">
+      <header className="results-header">
+        <div>
+          <p className="overline">Search results</p>
+          <h2 className="results-title">{search.user_query}</h2>
+        </div>
+        <p className="text-meta">
+          Checked {checkedAt || 'recently'} · {groupLabel}
+        </p>
+      </header>
+
       {search.is_sample && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          ⚠️ Live marketplace data was unavailable for this search — the listings below are illustrative <strong>sample data</strong>.
+        <div className="alert alert-warning" role="note">
+          <svg
+            className="alert-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+            <path d="M12 9v4" />
+            <path d="M12 17h.01" />
+          </svg>
+          <div>
+            <p className="alert-title">Live marketplace data was unavailable</p>
+            <p className="alert-body">
+              The listings below are illustrative <strong>sample data</strong>, not current prices.
+            </p>
+          </div>
         </div>
       )}
 
       {bestOffer && bestGroup && <BestDealCard search={search} bestOffer={bestOffer} group={bestGroup} />}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">Summary</h2>
-        <p className="text-sm leading-relaxed text-slate-700">{search.summary}</p>
+      <section className="card">
+        <h2 className="overline">Summary</h2>
+        <p className="summary-copy mt-2">{search.summary || 'No summary is available for this search.'}</p>
         {search.caveats.length > 0 && (
-          <ul className="mt-3 space-y-1">
+          <ul className="caveat-list">
             {search.caveats.map((caveat, index) => (
-              <li key={index} className="text-xs text-slate-500">
-                • {caveat}
-              </li>
+              <li key={index}>• {caveat}</li>
             ))}
           </ul>
         )}
-        <p className="mt-3 text-[11px] text-slate-400">
-          {search.model_used && <>model: {search.model_used} · </>}
-          {search.latency_ms != null && <>{Math.round(search.latency_ms / 1000)}s · </>}
-          {search.source_servers.length > 0 && <>via {search.source_servers.join(', ')}</>}
-        </p>
+        {(search.model_used || search.latency_ms != null || search.source_servers.length > 0) && (
+          <details className="details">
+            <summary>Run details</summary>
+            <p className="details__content">
+              {search.model_used && <>Model: {search.model_used}. </>}
+              {search.latency_ms != null && <>Completed in {Math.round(search.latency_ms / 1000)}s. </>}
+              {search.source_servers.length > 0 && <>Sources: {search.source_servers.join(', ')}.</>}
+            </p>
+          </details>
+        )}
       </section>
 
       {search.groups.length > 0 ? (
-        <div className="space-y-4">
+        <div className="section-stack">
           {[...search.groups]
             .sort((a, b) => a.rank - b.rank)
             .map((group) => (
@@ -183,8 +248,11 @@ export function DealResults({ search }: { search: SearchDetail }) {
             ))}
         </div>
       ) : (
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
-          No product groups were found for this query. Try more specific terms (include the brand and model).
+        <section className="card">
+          <div className="empty-state empty-state--compact">
+            <p className="empty-state__title">No product groups found</p>
+            <p className="empty-state__body">Try a more specific query with the brand and model.</p>
+          </div>
         </section>
       )}
     </div>

@@ -62,49 +62,75 @@ function humanize(events: ProgressEvent[]): Line[] {
 }
 
 const TONES: Record<Line['tone'], string> = {
-  info: 'text-slate-700',
-  ok: 'text-emerald-700',
-  fail: 'text-rose-600',
-  muted: 'text-slate-400',
+  info: 'log-line',
+  ok: 'log-line log-line--ok',
+  fail: 'log-line log-line--fail',
+  muted: 'log-line log-line--muted',
+}
+
+function LogLines({ lines, phase }: { lines: Line[]; phase: Phase }) {
+  return (
+    <>
+      {lines.length === 0 && phase === 'running' && <p className="text-meta">Querying marketplaces via MCP servers…</p>}
+      {lines.map((line) => (
+        <p key={line.key} className={TONES[line.tone]}>
+          {line.text}
+        </p>
+      ))}
+    </>
+  )
 }
 
 export function AgentProgress({ events, phase }: { events: ProgressEvent[]; phase: Phase }) {
   const lines = humanize(events)
-  const bottomRef = useRef<HTMLDivElement | null>(null)
+  const logRef = useRef<HTMLDivElement | null>(null)
+  const lastEventAt =
+    events.length > 0 ? formatRelativeTime(new Date(events[events.length - 1].at).toISOString()) : ''
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    const log = logRef.current
+    if (log) log.scrollTop = log.scrollHeight
   }, [lines.length])
 
+  const announcement =
+    phase === 'running' ? 'Agent is working.' : phase === 'completed' ? 'Search complete.' : phase === 'failed' ? 'Search failed.' : ''
+
+  if (phase !== 'running' && lines.length === 0) return null
+
+  if (phase !== 'running' && lines.length > 0) {
+    return (
+      <section className="card status-panel" aria-label="Agent progress">
+        <p className="sr-only" role="status" aria-live="polite">
+          {announcement}
+        </p>
+        <details className="status-details">
+          <summary className="status-summary">
+            <span className="status-dot status-dot--muted" aria-hidden="true" />
+            <span className="card-title">Activity log</span>
+            <span className="text-meta">{lastEventAt}</span>
+          </summary>
+          <div className="log mt-3" ref={logRef}>
+            <LogLines lines={lines} phase={phase} />
+          </div>
+        </details>
+      </section>
+    )
+  }
+
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-3 flex items-center gap-2">
-        {phase === 'running' ? (
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-          </span>
-        ) : (
-          <span className="inline-flex h-2.5 w-2.5 rounded-full bg-slate-300" />
-        )}
-        <h2 className="text-sm font-semibold text-slate-900">
-          {phase === 'running' ? 'Agent working…' : 'Agent log'}
-        </h2>
-        <span className="text-xs text-slate-400">
-          {events.length > 0 ? formatRelativeTime(new Date(events[events.length - 1].at).toISOString()) : ''}
-        </span>
+    <section className="card status-panel" aria-label="Agent progress">
+      <p className="sr-only" role="status" aria-live="polite">
+        {announcement}
+      </p>
+
+      <div className="status-header">
+        <span className={phase === 'running' ? 'status-dot is-running' : 'status-dot status-dot--muted'} aria-hidden="true" />
+        <h2 className="card-title">{phase === 'running' ? 'Agent working…' : 'Agent log'}</h2>
+        <span className="text-meta">{lastEventAt}</span>
       </div>
 
-      <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
-        {lines.length === 0 && phase === 'running' && (
-          <p className="text-sm text-slate-500">Querying marketplaces via MCP servers…</p>
-        )}
-        {lines.map((line) => (
-          <p key={line.key} className={`text-sm ${TONES[line.tone]}`}>
-            {line.text}
-          </p>
-        ))}
-        <div ref={bottomRef} />
+      <div className="log" ref={logRef}>
+        <LogLines lines={lines} phase={phase} />
       </div>
     </section>
   )

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { AgentProgress } from '../components/AgentProgress'
 import { DealResults } from '../components/DealResults'
@@ -11,11 +11,6 @@ export function SearchPage() {
   const { phase, events, search, error, searchId, run, openExisting } = useSearchStream()
   const [query, setQuery] = useState('')
   const [limit, setLimit] = useState(5)
-  const [refreshKey, setRefreshKey] = useState(0)
-
-  useEffect(() => {
-    if (phase === 'completed' || phase === 'failed') setRefreshKey((key) => key + 1)
-  }, [phase])
 
   const canSubmit = query.trim().length >= 2 && phase !== 'running'
 
@@ -27,82 +22,124 @@ export function SearchPage() {
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
-      <div className="space-y-5">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <label htmlFor="search" className="mb-2 block text-sm font-medium text-slate-700">
-            What are you looking for?
-          </label>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              id="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') submit()
-              }}
-              placeholder='e.g. "sony wh-1000xm5 headphones"'
-              className="w-full flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none ring-emerald-500/30 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4"
-            />
-            <div className="flex items-center gap-3">
+    <div className="page-grid" aria-busy={phase === 'running'}>
+      <div className="section-stack">
+        <section className="card">
+          <form
+            className="search-form"
+            onSubmit={(event) => {
+              event.preventDefault()
+              submit()
+            }}
+          >
+            <div className="field">
+              <label htmlFor="search" className="label">
+                What are you looking for?
+              </label>
+              <input
+                id="search"
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                autoComplete="off"
+                enterKeyHint="search"
+                maxLength={500}
+                placeholder='e.g. "sony wh-1000xm5 headphones"'
+                className="input"
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="limit" className="label">
+                Results per site
+              </label>
               <select
+                id="limit"
                 value={limit}
                 onChange={(event) => setLimit(Number(event.target.value))}
-                className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-600 outline-none focus:border-emerald-500"
+                disabled={phase === 'running'}
+                className="select"
                 title="Listings to fetch per marketplace"
               >
                 <option value={3}>3 / site</option>
                 <option value={5}>5 / site</option>
                 <option value={8}>8 / site</option>
               </select>
-              <button
-                type="button"
-                onClick={() => submit()}
-                disabled={!canSubmit}
-                className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {phase === 'running' ? 'Searching…' : 'Find best deal'}
-              </button>
             </div>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
+
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              aria-busy={phase === 'running'}
+              className="btn btn-primary search-form__submit"
+            >
+              {phase === 'running' && <span className="spinner" aria-hidden="true" />}
+              {phase === 'running' ? 'Searching…' : 'Find best deal'}
+            </button>
+          </form>
+
+          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Example searches">
             {EXAMPLES.map((example) => (
               <button
                 key={example}
                 type="button"
                 onClick={() => submit(example)}
                 disabled={phase === 'running'}
-                className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 disabled:opacity-40"
+                className="chip"
               >
                 {example}
               </button>
             ))}
           </div>
-        </div>
+        </section>
 
-        {(phase === 'running' || events.length > 0) && <AgentProgress events={events} phase={phase} />}
+        {phase === 'running' && <AgentProgress events={events} phase={phase} />}
 
         {phase === 'failed' && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
-            <p className="font-semibold">The search failed.</p>
-            {error && <p className="mt-1 text-rose-600">{error}</p>}
-            <p className="mt-2 text-xs text-rose-500">
-              Tip: check that the backend is running and the MCP servers are reachable (see /api/health/mcp/?probe=1).
-            </p>
+          <div className="alert alert-danger" role="alert">
+            <svg
+              className="alert-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+              <path d="M12 9v4" />
+              <path d="M12 17h.01" />
+            </svg>
+            <div>
+              <p className="alert-title">The search failed.</p>
+              <p className="alert-body">The comparison could not be completed. This is usually temporary.</p>
+              {error && (
+                <details className="details">
+                  <summary>Technical details</summary>
+                  <p className="details__content">{error}</p>
+                </details>
+              )}
+            </div>
           </div>
         )}
 
         {phase === 'completed' && search && <DealResults search={search} />}
+
+        {events.length > 0 && phase !== 'running' && <AgentProgress events={events} phase={phase} />}
       </div>
 
-      <aside className="space-y-5">
-        <RecentSearches refreshKey={refreshKey} activeId={searchId} onOpen={(id) => void openExisting(id)} />
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 text-xs leading-relaxed text-slate-500 shadow-sm">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">How it works</h2>
+      <aside className="page-rail">
+        <RecentSearches
+          refreshKey={search?.completed_at ?? searchId ?? ''}
+          activeId={searchId}
+          onOpen={(id) => void openExisting(id)}
+        />
+        <section className="card prose-card">
+          <h2 className="overline mb-2">How it works</h2>
           <p>
-            An AI agent queries live marketplace data through MCP servers, groups identical products, and recommends the
-            best deal. If a live site blocks the scraper, the pool fails over to the next MCP server and finally to clearly
-            labelled sample data.
+            Deal Finder checks Amazon.in and Flipkart, groups the same product across both, and recommends the best value.
+            If a source is unavailable, results are clearly labelled as sample data.
           </p>
         </section>
       </aside>
